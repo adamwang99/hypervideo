@@ -10,6 +10,18 @@ import numpy as np
 
 SENTENCE_BREAKS = (".", "?", "!", "…")
 SOFT_BREAKS = (",", ";", ":")
+VN_UNITS = [
+    "không",
+    "một",
+    "hai",
+    "ba",
+    "bốn",
+    "năm",
+    "sáu",
+    "bảy",
+    "tám",
+    "chín",
+]
 
 
 def latest_snapshot(cache_dir: Path, required_files):
@@ -78,6 +90,88 @@ def frame_budget_for_text(text: str, requested_max: int):
     return min(max(requested_max, budget), 1600)
 
 
+def vietnamese_number_under_1000(number: int, full: bool = False):
+    number = int(number)
+    hundred = number // 100
+    rest = number % 100
+    parts = []
+    if hundred:
+        parts.extend([VN_UNITS[hundred], "trăm"])
+    elif full and rest:
+        parts.extend(["không", "trăm"])
+    if rest:
+        tens = rest // 10
+        unit = rest % 10
+        if tens > 1:
+            parts.extend([VN_UNITS[tens], "mươi"])
+            if unit == 1:
+                parts.append("mốt")
+            elif unit == 4:
+                parts.append("tư")
+            elif unit == 5:
+                parts.append("lăm")
+            elif unit:
+                parts.append(VN_UNITS[unit])
+        elif tens == 1:
+            parts.append("mười")
+            if unit == 5:
+                parts.append("lăm")
+            elif unit:
+                parts.append(VN_UNITS[unit])
+        elif unit:
+            if hundred:
+                parts.append("lẻ")
+            parts.append(VN_UNITS[unit])
+    return " ".join(parts) if parts else VN_UNITS[0]
+
+
+def vietnamese_number(number: int):
+    number = int(number)
+    if number == 0:
+        return VN_UNITS[0]
+    if number < 0:
+        return "âm " + vietnamese_number(abs(number))
+    groups = []
+    units = ["", "nghìn", "triệu", "tỷ"]
+    while number:
+        groups.append(number % 1000)
+        number //= 1000
+    parts = []
+    for index in range(len(groups) - 1, -1, -1):
+        group = groups[index]
+        if not group:
+            continue
+        full = index < len(groups) - 1 and group < 100
+        words = vietnamese_number_under_1000(group, full=full)
+        unit = units[index] if index < len(units) else ""
+        parts.append(f"{words} {unit}".strip())
+    return " ".join(parts)
+
+
+def normalize_text_for_tts(text: str):
+    import re
+
+    def thousands_replacer(match):
+        raw = match.group(0)
+        number = int(re.sub(r"[.,]", "", raw))
+        return vietnamese_number(number)
+
+    def integer_replacer(match):
+        number = int(match.group(0))
+        if number > 999999999:
+            return match.group(0)
+        return vietnamese_number(number)
+
+    normalized = re.sub(r"\b\d{1,3}(?:[.,]\d{3})+\b", thousands_replacer, text)
+    normalized = re.sub(r"(?<![\w./:-])\d+(?![\w./:-])", integer_replacer, normalized)
+    normalized = normalized.replace("AI", "ây ai")
+    normalized = normalized.replace("API", "ây pi ai")
+    normalized = normalized.replace("GPU", "gi pi iu")
+    normalized = normalized.replace("CUDA", "cu đa")
+    normalized = normalized.replace("MLX", "em el ích")
+    return normalized
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate Vietnamese speech with the official local VieNeu TTS SDK.")
     parser.add_argument("text_file")
@@ -144,17 +238,18 @@ def main():
         chunks.extend(split_line_for_tts(line))
 
     rendered = []
-    sentence_silence = np.zeros(int(48000 * 0.30), dtype=np.float32)
-    paragraph_silence = np.zeros(int(48000 * 0.68), dtype=np.float32)
-    tail_silence = np.zeros(int(48000 * 0.42), dtype=np.float32)
+    sentence_silence = np.zeros(int(48000 * 0.33), dtype=np.float32)
+    paragraph_silence = np.zeros(int(48000 * 0.75), dtype=np.float32)
+    tail_silence = np.zeros(int(48000 * 0.46), dtype=np.float32)
     for chunk in chunks:
         if chunk is None:
             rendered.append(paragraph_silence)
             continue
         chunk_kwargs = dict(kwargs)
+        chunk_text = normalize_text_for_tts(chunk)
         if "max_new_frames" in infer_params:
-            chunk_kwargs["max_new_frames"] = frame_budget_for_text(chunk, args.max_new_frames)
-        audio = np.asarray(tts.infer(chunk, **chunk_kwargs), dtype=np.float32).reshape(-1)
+            chunk_kwargs["max_new_frames"] = frame_budget_for_text(chunk_text, args.max_new_frames)
+        audio = np.asarray(tts.infer(chunk_text, **chunk_kwargs), dtype=np.float32).reshape(-1)
         rendered.append(audio)
         rendered.append(sentence_silence)
 
