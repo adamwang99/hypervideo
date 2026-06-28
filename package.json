@@ -1,0 +1,14 @@
+{
+  "name": "hypervideo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lightweight HyperFrames video queue app for users and AI agents",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check lib/store.js && node --check lib/render.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

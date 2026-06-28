@@ -1,0 +1,20 @@
+.DS_Store
+node_modules/
+
+# Runtime state and generated render output
+data/*.json
+projects/
+temps/
+tmp/
+*.tmp
+tmp-audio-*.json
+
+# Python/runtime caches
+__pycache__/
+*.py[cod]
+
+# Local logs and environment
+*.log
+.env
+.env.*
+

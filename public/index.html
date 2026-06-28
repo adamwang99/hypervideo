@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hypervideo</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark">H</div>
+      <div>
+        <h1>Hypervideo</h1>
+        <p>Video queue cho người dùng và AI Agent</p>
+      </div>
+    </div>
+    <nav>
+      <button class="nav active" data-tab="create">Tạo video</button>
+      <button class="nav" data-tab="queue">Hàng đợi</button>
+      <button class="nav" data-tab="library">Thư viện</button>
+      <button class="nav" data-tab="voices">Voices</button>
+      <button class="nav" data-tab="llm">LLM</button>
+      <button class="nav" data-tab="manage">Quản lý</button>
+      <button class="nav" data-tab="agent">Agent API</button>
+    </nav>
+    <div class="status">
+      <span id="health-dot"></span>
+      <span id="health-text">Đang tải...</span>
+    </div>
+  </aside>
+
+  <main>
+    <section id="tab-create" class="tab active">
+      <header class="page-head">
+        <div>
+          <h2>Tạo danh sách video từ link</h2>
+          <p>Dán một hoặc nhiều link, chọn cấu hình, đưa vào queue và xử lý tuần tự.</p>
+        </div>
+        <button id="start-queue" class="ghost">Chạy queue</button>
+      </header>
+
+      <div class="grid two">
+        <form id="create-form" class="panel">
+          <label>
+            Links hoặc nội dung
+            <textarea name="links" rows="8" placeholder="https://github.com/voocel/ainovel-cli&#10;https://..."></textarea>
+          </label>
+
+          <div class="quick-config">
+            <label>Combo video
+              <select name="templateCombo" data-catalog="templateCombos"></select>
+            </label>
+            <label>Cách hành văn
+              <select name="writingStyle" id="writing-style-select"></select>
+            </label>
+            <label>Độ dài
+              <select name="duration" data-catalog="durations"></select>
+            </label>
+            <label>Giây
+              <input name="durationSeconds" type="number" min="10" max="240" value="60">
+            </label>
+            <label>Khổ hình
+              <select name="aspect" data-catalog="aspects"></select>
+            </label>
+            <label>Voice
+              <select name="voice" data-catalog="voices"></select>
+            </label>
+          </div>
+          <div class="workflow-hint">
+            Chọn combo trước. Writer sẽ dùng combo này để quyết định cách mở bài, nhịp câu, dẫn chứng, subtitle và CTA.
+          </div>
+          <div class="writing-style-guidance" id="writing-style-guidance"></div>
+          <div class="writing-style-picker" id="writing-style-suggestions"></div>
+          <div class="combo-picker" id="combo-picker"></div>
+
+          <div id="selected-voice-display" class="selected-voice-panel hidden"></div>
+
+          <div class="llm-inline">
+            <label class="toggle-row"><input type="checkbox" name="llmEnabled"> <span>Dùng LLM để viết nội dung</span></label>
+            <div class="grid two compact llm-create-grid">
+              <label>LLM provider <select name="llmProviderId" id="llm-provider-select"></select></label>
+              <label>LLM model <select name="llmModel" id="llm-model-select"></select></label>
+              <div class="llm-inline-actions">
+                <button type="button" class="primary-action" id="preview-writer">Write content</button>
+              </div>
+            </div>
+          </div>
+
+          <details class="advanced-options">
+            <summary>Nâng cao: nội dung, hiệu ứng, render kỹ thuật</summary>
+            <div class="advanced-group">
+              <h3>Nội dung</h3>
+              <div class="grid two compact">
+                <label>Tiêu đề chung <input name="title" placeholder="Ví dụ: Bộ video AI tools"></label>
+                <label>Chủ đề <input name="topic" placeholder="Tự suy từ link nếu để trống"></label>
+              </div>
+              <label>Hook <input name="hook" placeholder="Câu mở đầu gây chú ý"></label>
+              <label>CTA <input name="cta" value="Lưu lại, thử ngay và chia sẻ nếu hữu ích."></label>
+              <label>Tone nội dung <input name="tone" value="gọn, rõ, có nhịp"></label>
+            </div>
+
+            <div class="advanced-group">
+              <h3>Writer</h3>
+              <div class="grid two compact">
+                <label>Writer mode
+                  <select name="writerMode">
+                    <option value="local">Local writer</option>
+                    <option value="llm">LLM writer</option>
+                  </select>
+                </label>
+                <label>Content mode
+                  <select name="contentMode">
+                    <option value="auto-fit">Auto fit</option>
+                    <option value="fill-to-duration">Fill to duration</option>
+                    <option value="strict-source">Strict source</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="advanced-group">
+              <h3>Giao diện & hiệu ứng</h3>
+              <div class="grid three compact">
+                <label>Template <select name="template" data-catalog="templates"></select></label>
+                <label>Hiệu ứng <select name="effect" data-catalog="effects"></select></label>
+                <label>Tone màu <select name="palette" data-catalog="palettes"></select></label>
+                <label>Kiểu tiêu đề <input name="titleStyle" placeholder="Tự lấy từ combo"></label>
+                <label>Dẫn chứng / Media <input name="mediaStrategy" placeholder="source-card, ui-mock..."></label>
+                <label>Infographic <input name="infographic" placeholder="feature-bars, checklist..."></label>
+              </div>
+            </div>
+
+            <div class="advanced-group">
+              <h3>Render</h3>
+              <div class="grid three compact">
+                <label>Độ phân giải <select name="resolution" data-catalog="resolutions"></select></label>
+                <label>Voice path <input name="voicePath" placeholder="/Users/adam/.../voice.wav"></label>
+                <label>Format
+                  <select name="renderFormat">
+                    <option value="">MP4 mặc định</option>
+                    <option value="mp4">MP4</option>
+                    <option value="webm">WebM</option>
+                    <option value="mov">MOV</option>
+                    <option value="gif">GIF</option>
+                    <option value="png-sequence">PNG sequence</option>
+                  </select>
+                </label>
+                <label>Chất lượng
+                  <select name="renderQuality">
+                    <option value="">Standard</option>
+                    <option value="draft">Draft</option>
+                    <option value="standard">Standard</option>
+                    <option value="high">High</option>
+                  </select>
+                </label>
+                <label>FPS <input name="fps" type="number" min="1" max="120" placeholder="30"></label>
+                <label>Workers <input name="workers" type="number" min="1" max="16" placeholder="auto"></label>
+                <label>CRF <input name="crf" type="number" min="0" max="51" placeholder="auto"></label>
+                <label>Video bitrate <input name="videoBitrate" placeholder="Ví dụ: 6M"></label>
+                <label>Cách tạo
+                  <select name="mode">
+                    <option value="one-video-per-link">Mỗi link một video</option>
+                    <option value="combine-links">Gộp links thành một video</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </details>
+
+          <div class="actions">
+            <button type="submit" id="queue-submit" disabled>Tạo video</button>
+            <button type="button" class="ghost" id="save-draft">Lưu nháp</button>
+          </div>
+          <div id="queue-submit-hint" class="form-hint warning">Cần Write content hoặc dán nội dung trước khi tạo video.</div>
+        </form>
+
+        <aside class="panel">
+          <h3>Workflow đề xuất</h3>
+          <ol class="steps">
+            <li>Dán link hoặc nhiều link.</li>
+            <li>Chọn combo video, độ dài, khổ hình và voice.</li>
+            <li>Write content để viết nội dung theo đúng combo đã chọn.</li>
+            <li>Tạo video để render tuần tự, tự lưu tiến trình.</li>
+            <li>Xem lại video đã tạo trong Library.</li>
+          </ol>
+          <div class="note">
+            App dùng Node.js thuần + JSON state. Agent có thể gọi API trực tiếp, không cần điều khiển UI.
+          </div>
+          <div id="writer-progress" class="writer-progress hidden">
+            <div><span>Đang viết nội dung...</span><b>0%</b></div>
+            <div class="progress-row"><div></div></div>
+          </div>
+          <div id="writer-style-meta" class="writer-style-meta hidden"></div>
+          <div id="writer-preview" class="writer-preview hidden"></div>
+          <div class="writer-editor">
+            <div class="writer-editor-head">
+              <h3>Nội dung cho video</h3>
+              <div class="writer-editor-actions">
+                <button type="button" class="primary-action subtle" id="rewrite-writer-script">Rewrite</button>
+                <button type="button" class="ghost" id="edit-writer-script">Edit</button>
+              </div>
+            </div>
+            <textarea id="manual-script" rows="12" placeholder="Dán nội dung có sẵn hoặc bấm Write content để tạo bản nháp. Khi có nội dung ở đây, app sẽ dùng nội dung này để tạo video."></textarea>
+            <div id="script-stats" class="script-stats">0 ký tự · 0 từ · Ước tính 0:00</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="tab-queue" class="tab">
+      <header class="page-head">
+        <div>
+          <h2>Hàng đợi</h2>
+          <p>Job được xử lý tuần tự. Log được lưu lại để reload vẫn xem được.</p>
+        </div>
+        <button class="ghost refresh">Tải lại</button>
+        <button id="sync-hf" class="ghost">Sync HyperFrames</button>
+      </header>
+      <div id="queue-list" class="list"></div>
+    </section>
+
+    <section id="tab-library" class="tab">
+      <header class="page-head">
+        <div>
+          <h2>Video đã tạo</h2>
+          <p>Lịch sử output, preview HTML và thông tin job.</p>
+        </div>
+        <button class="ghost refresh">Tải lại</button>
+      </header>
+      <div id="history-list" class="list"></div>
+    </section>
+
+    <section id="tab-voices" class="tab">
+      <header class="page-head">
+        <div>
+          <h2>Quản lý voice</h2>
+          <p>Lưu, sửa, xoá và clone voice local/TTS. Voice có path sẽ tự gắn vào video khi render.</p>
+        </div>
+      </header>
+      <div class="voice-library-layout">
+        <div class="panel voice-library-panel">
+          <div class="voice-toolbar">
+            <div>
+              <h3>Kho voice</h3>
+              <p><span id="voice-count">0</span> voice, chọn nhanh để gắn vào video.</p>
+            </div>
+            <button type="button" id="new-voice-btn" class="ghost">Thêm voice</button>
+          </div>
+          <div class="voice-controls">
+            <input id="voice-search" placeholder="Tìm voice, tag, provider...">
+            <select id="voice-filter">
+              <option value="all">Tất cả</option>
+              <option value="favorite">Yêu thích</option>
+              <option value="vi">Tiếng Việt</option>
+              <option value="local">Local file</option>
+              <option value="tts">TTS/API</option>
+            </select>
+            <select id="voice-sort">
+              <option value="favorite">Yêu thích trước</option>
+              <option value="name">Tên A-Z</option>
+              <option value="quality">Chất lượng</option>
+              <option value="usage">Dùng nhiều</option>
+            </select>
+          </div>
+          <div id="voice-list" class="voice-grid"></div>
+        </div>
+        <form id="voice-form" class="panel">
+          <h3>Thêm / sửa voice</h3>
+          <label>ID <input name="id" placeholder="vieneu-demo"></label>
+          <label>Tên voice <input name="name" required placeholder="Voice Việt demo"></label>
+          <label>Provider
+            <select name="provider">
+              <option value="local">Local file</option>
+              <option value="vieneu-tts">Vieneu TTS</option>
+              <option value="openai-tts">OpenAI TTS</option>
+              <option value="none">Không voice</option>
+            </select>
+          </label>
+          <label>Ngôn ngữ <input name="language" value="vi"></label>
+          <label>Giới tính
+            <select name="gender">
+              <option value="">Chưa chọn</option>
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+              <option value="Trung tính">Trung tính</option>
+            </select>
+          </label>
+          <label>Giọng
+            <select name="pitch">
+              <option value="">Chưa chọn</option>
+              <option value="Cao">Cao</option>
+              <option value="Trầm">Trầm</option>
+              <option value="Trung bình">Trung bình</option>
+            </select>
+          </label>
+          <label>Tags <input name="tags" placeholder="Nữ, truyền cảm, tin tức"></label>
+          <label>Chất lượng <input name="qualityScore" type="number" min="0" max="100" placeholder="85"></label>
+          <label>File path / API URL <input name="path" placeholder="/Users/adam/.../voice.wav"></label>
+          <label>Mô tả <textarea name="description" rows="3"></textarea></label>
+          <div class="actions">
+            <button type="submit">Lưu voice</button>
+            <button type="button" id="clear-voice-form" class="ghost">Xoá form</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section id="tab-llm" class="tab">
+      <header class="page-head">
+        <div>
+          <h2>LLM Providers</h2>
+          <p>Quản lý provider, models, auth, test kết nối và scan models cho writer.</p>
+        </div>
+      </header>
+      <div class="llm-workbench">
+        <div class="panel llm-catalog-panel">
+          <div class="voice-toolbar">
+            <div>
+              <h3>Provider catalog</h3>
+              <p><span id="llm-provider-count">0</span> connection đang lưu.</p>
+            </div>
+            <button type="button" class="ghost" id="new-llm-provider">Thêm provider</button>
+            <button type="button" class="ghost" id="llm-provider-test-batch">Test enabled</button>
+          </div>
+          <div class="llm-provider-filters">
+            <input id="llm-provider-search" placeholder="Tìm provider, model, note...">
+            <select id="llm-provider-auth-filter">
+              <option value="all">Tất cả auth</option>
+              <option value="api-key">API key</option>
+              <option value="oauth">OAuth</option>
+            </select>
+            <select id="llm-provider-status-filter">
+              <option value="all">Tất cả trạng thái</option>
+              <option value="enabled">Enabled</option>
+              <option value="disabled">Disabled</option>
+              <option value="error">Có lỗi</option>
+            </select>
+          </div>
+          <div id="llm-provider-list" class="mini-list"></div>
+        </div>
+        <div id="llm-provider-detail" class="llm-provider-detail hidden"></div>
+        <form id="llm-provider-form" class="panel llm-provider-form hidden">
+          <div class="llm-editor-head">
+            <div>
+              <h3>Connection setup</h3>
+              <p>Chọn provider trước, sau đó nhập auth và model. Trường nâng cao được gom riêng để tránh nhầm.</p>
+            </div>
+            <label class="toggle-row"><input type="checkbox" name="enabled"> <span>Enable</span></label>
+          </div>
+
+          <section class="llm-editor-section">
+            <div class="section-title">
+              <span>1</span>
+              <div>
+                <strong>Provider</strong>
+                <p>Giống 9router: chọn loại provider/preset trước, connection sẽ kế thừa endpoint và auth phù hợp.</p>
+              </div>
+            </div>
+            <div class="provider-preset-grid">
+              <button type="button" data-provider-preset="openai"><span>OA</span><strong>OpenAI</strong><small>API key</small></button>
+              <button type="button" data-provider-preset="gemini"><span>GE</span><strong>Gemini</strong><small>OAuth / key</small></button>
+              <button type="button" data-provider-preset="deepseek"><span>DS</span><strong>DeepSeek</strong><small>API key</small></button>
+              <button type="button" data-provider-preset="anthropic"><span>AN</span><strong>Anthropic</strong><small>Messages API</small></button>
+              <button type="button" data-provider-preset="openai-compatible"><span>OC</span><strong>OpenAI compatible</strong><small>Custom endpoint</small></button>
+              <button type="button" data-provider-preset="anthropic-compatible"><span>AC</span><strong>Anthropic compatible</strong><small>Custom endpoint</small></button>
+            </div>
+            <div class="form-grid three">
+              <label>Provider type
+                <select name="type">
+                  <option value="openai">OpenAI</option>
+                  <option value="openai-compatible">OpenAI compatible</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="anthropic-compatible">Anthropic compatible</option>
+                </select>
+              </label>
+              <label>ID connection <input name="id" placeholder="openai-main"></label>
+              <label>Tên hiển thị <input name="name" required placeholder="OpenAI chính"></label>
+            </div>
+          </section>
+
+          <section class="llm-editor-section">
+            <div class="section-title">
+              <span>2</span>
+              <div>
+                <strong>Auth</strong>
+                <p>Chỉ hiện nhóm trường cần nhập cho API key hoặc OAuth.</p>
+              </div>
+            </div>
+            <div class="form-grid three">
+              <label>Auth type
+                <select name="authType">
+                  <option value="api-key">API key</option>
+                  <option value="oauth">OAuth / token</option>
+                </select>
+              </label>
+              <label data-auth-field="api-key">API key <input name="apiKey" placeholder="sk-..."></label>
+              <label>Priority <input name="priority" type="number" min="1" max="999" placeholder="999"></label>
+              <label data-auth-field="oauth">Access token <input name="accessToken" placeholder="OAuth access token"></label>
+              <label data-auth-field="oauth">Refresh token <input name="refreshToken" placeholder="OAuth refresh token"></label>
+              <label data-auth-field="oauth">Client ID <input name="clientId" placeholder="OAuth client id"></label>
+              <label data-auth-field="oauth">Client Secret <input name="clientSecret" placeholder="OAuth client secret"></label>
+              <label data-auth-field="oauth">Auth URL <input name="authUrl" placeholder="https://accounts.google.com/o/oauth2/v2/auth"></label>
+              <label data-auth-field="oauth">Token URL <input name="tokenUrl" placeholder="https://oauth2.googleapis.com/token"></label>
+              <label data-auth-field="oauth">Scopes <input name="scopes" placeholder="scope1 scope2"></label>
+              <label data-auth-field="oauth">Redirect URI <input name="redirectUri" placeholder="http://localhost:8787/api/llm/oauth/callback"></label>
+              <label data-auth-field="oauth">OAuth URL <input name="oauthUrl" placeholder="Tạo URL OAuth để mở trên trình duyệt" readonly></label>
+              <label data-auth-field="oauth">OAuth code <input name="oauthCode" placeholder="Dán code sau khi authorize"></label>
+            </div>
+          </section>
+
+          <section class="llm-editor-section">
+            <div class="section-title">
+              <span>3</span>
+              <div>
+                <strong>Model & health</strong>
+                <p>Scan models, chọn model mặc định và xem trạng thái connection.</p>
+              </div>
+            </div>
+            <div class="form-grid three">
+              <label>Default model <input name="defaultModel" placeholder="gpt-4.1-mini"></label>
+              <label>Temperature <input name="temperature" type="number" min="0" max="2" step="0.1" placeholder="0.7"></label>
+              <label>Max tokens <input name="maxTokens" type="number" min="256" max="8192" step="1" placeholder="1200"></label>
+            </div>
+            <div class="form-grid two">
+              <label>Models đã scan <textarea name="modelsText" rows="5" placeholder="Tự cập nhật sau khi scan" readonly></textarea></label>
+              <label>Lịch sử health <textarea name="healthHistoryText" rows="5" placeholder="Tự cập nhật sau khi test/scan/OAuth" readonly></textarea></label>
+            </div>
+          </section>
+
+          <details class="llm-editor-section llm-advanced">
+            <summary>Advanced endpoint / provider data</summary>
+            <div class="form-grid three">
+              <label>Base URL <input name="baseUrl" placeholder="https://api.openai.com/v1"></label>
+              <label>Compatible mode <input name="compatibleMode" placeholder="openai / anthropic / google"></label>
+              <label>Anthropic version <input name="anthropicVersion" placeholder="2023-06-01"></label>
+            </div>
+            <div class="form-grid two">
+              <label>Mô tả / Notes <textarea name="notes" rows="4"></textarea></label>
+              <label>Provider-specific JSON <textarea name="providerSpecificDataText" rows="5" placeholder="{ &quot;projectId&quot;: &quot;...&quot; }"></textarea></label>
+            </div>
+          </details>
+
+          <div class="actions">
+            <button type="submit">Lưu provider</button>
+            <button type="button" class="ghost" id="llm-provider-validate">Validate</button>
+            <button type="button" class="ghost" id="llm-provider-test">Test</button>
+            <button type="button" class="ghost" id="llm-provider-scan">Scan models</button>
+            <button type="button" class="ghost" id="llm-provider-oauth-start">Tạo URL OAuth</button>
+            <button type="button" class="ghost" id="llm-provider-oauth-exchange">Đổi code lấy token</button>
+            <button type="button" class="ghost" id="clear-llm-provider-form">Xoá form</button>
+          </div>
+          <div id="llm-provider-status" class="path-line muted">Chưa test.</div>
+        </form>
+      </div>
+      <div id="llm-modal-root"></div>
+    </section>
+
+    <section id="tab-manage" class="tab">
+      <header class="page-head">
+        <div>
+          <h2>Quản lý cấu hình</h2>
+          <p>Thêm, sửa, xoá, clone templates, voices, API xử lý và local writer.</p>
+        </div>
+      </header>
+      <div class="grid manage-grid">
+        <div class="panel">
+          <h3>Danh mục</h3>
+          <select id="catalog-type">
+            <option value="templates">Templates</option>
+            <option value="effects">Hiệu ứng</option>
+            <option value="templateCombos">Combo templates</option>
+            <option value="palettes">Tone màu</option>
+            <option value="voices">Voices</option>
+            <option value="apis">API xử lý</option>
+            <option value="writers">Local writer</option>
+            <option value="hyperframes">HyperFrames registry</option>
+          </select>
+          <div id="catalog-list" class="mini-list"></div>
+        </div>
+        <form id="catalog-form" class="panel">
+          <h3>Thêm / sửa</h3>
+          <label>ID <input name="id" placeholder="Để trống nếu thêm mới"></label>
+          <label>Tên <input name="name" required></label>
+          <label>Mô tả <textarea name="description" rows="3"></textarea></label>
+          <label>Provider / Type <input name="provider" placeholder="local, openai, renderer..."></label>
+          <label>Path / Base URL <input name="path" placeholder="/path/to/voice.wav hoặc https://api..."></label>
+          <label>Ghi chú <textarea name="notes" rows="3"></textarea></label>
+          <div class="actions">
+            <button type="submit">Lưu item</button>
+            <button type="button" id="clear-catalog-form" class="ghost">Xoá form</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section id="tab-agent" class="tab">
+      <header class="page-head">
+        <div>
+          <h2>Agent API</h2>
+          <p>API đơn giản để AI Agent tạo job, quản lý queue và đọc lịch sử.</p>
+        </div>
+      </header>
+      <div class="panel">
+        <h3>Endpoint chính</h3>
+        <pre><code>GET  /api/state
+POST /api/jobs
+POST /api/queue/start
+POST /api/catalog/:type
+POST /api/catalog/:type/:id/clone
+DELETE /api/catalog/:type/:id
+POST /api/draft
+GET  /api/llm/providers
+POST /api/llm/providers
+POST /api/llm/providers/:id/test
+POST /api/llm/providers/:id/scan-models
+POST /api/llm/providers/:id/clone
+POST /api/llm/providers/:id/oauth-start
+POST /api/llm/providers/:id/oauth-exchange
+GET  /api/hyperframes/capabilities
+GET  /api/hyperframes/doctor
+POST /api/hyperframes/catalog/sync
+POST /api/hyperframes/run</code></pre>
+        <h3>Gọi HyperFrames trực tiếp</h3>
+        <pre><code>{
+  "command": "inspect",
+  "args": ["/Users/adam/Hypervideo/projects/demo"],
+  "cwd": "/Users/adam/Hypervideo"
+}</code></pre>
+        <h3>Ví dụ tạo nhiều video từ nhiều link</h3>
+        <pre><code>{
+  "links": [
+    "https://github.com/voocel/ainovel-cli",
+    "https://example.com/post-2"
+  ],
+  "mode": "one-video-per-link",
+  "template": "launch-card",
+  "palette": "dark-neon",
+  "aspect": "vertical",
+  "resolution": "1080p",
+  "durationSeconds": 60,
+  "voice": "vieneu-demo",
+  "voicePath": "/Users/adam/Desktop/ainovel-promo/assets/narration_vieneu.wav",
+  "renderQuality": "standard",
+  "fps": 30,
+  "tone": "tiếng Việt ngắn gọn, có CTA",
+  "cta": "Star repo, cài CLI và thử ngay hôm nay."
+}</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
