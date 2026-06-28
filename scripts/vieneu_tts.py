@@ -47,7 +47,7 @@ def resolve_local_vieneu_paths():
     return model_dir, onnx_dir, codec_dir
 
 
-def split_line_for_tts(line: str, limit: int = 125):
+def split_line_for_tts(line: str, limit: int = 105):
     line = " ".join(line.split()).strip()
     if not line:
         return []
@@ -56,14 +56,14 @@ def split_line_for_tts(line: str, limit: int = 125):
         cut = -1
         for mark in SENTENCE_BREAKS:
             cut = max(cut, line.rfind(mark, 0, limit))
-        if cut >= 82:
+        if cut >= 62:
             cut += 1
         else:
             soft = -1
             for mark in SOFT_BREAKS:
                 soft = max(soft, line.rfind(mark, 0, limit))
-            cut = soft + 1 if soft >= 92 else line.rfind(" ", 0, limit)
-        if cut < 82:
+            cut = soft + 1 if soft >= 68 else line.rfind(" ", 0, limit)
+        if cut < 62:
             cut = limit
         chunks.append(line[:cut].strip())
         line = line[cut:].strip()
@@ -74,8 +74,8 @@ def split_line_for_tts(line: str, limit: int = 125):
 
 def frame_budget_for_text(text: str, requested_max: int):
     word_count = len(text.split())
-    budget = max(360, 190 + int(len(text) * 2.6), 150 + word_count * 32)
-    return min(max(requested_max, budget), 1200)
+    budget = max(460, 240 + int(len(text) * 3.2), 180 + word_count * 42)
+    return min(max(requested_max, budget), 1600)
 
 
 def main():
@@ -144,9 +144,9 @@ def main():
         chunks.extend(split_line_for_tts(line))
 
     rendered = []
-    sentence_silence = np.zeros(int(48000 * 0.27), dtype=np.float32)
-    paragraph_silence = np.zeros(int(48000 * 0.61), dtype=np.float32)
-    tail_silence = np.zeros(int(48000 * 0.3), dtype=np.float32)
+    sentence_silence = np.zeros(int(48000 * 0.30), dtype=np.float32)
+    paragraph_silence = np.zeros(int(48000 * 0.68), dtype=np.float32)
+    tail_silence = np.zeros(int(48000 * 0.42), dtype=np.float32)
     for chunk in chunks:
         if chunk is None:
             rendered.append(paragraph_silence)
