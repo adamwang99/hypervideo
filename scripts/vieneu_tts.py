@@ -59,7 +59,7 @@ def resolve_local_vieneu_paths():
     return model_dir, onnx_dir, codec_dir
 
 
-def split_line_for_tts(line: str, limit: int = 105):
+def split_line_for_tts(line: str, limit: int = 88):
     line = " ".join(line.split()).strip()
     if not line:
         return []
@@ -68,14 +68,14 @@ def split_line_for_tts(line: str, limit: int = 105):
         cut = -1
         for mark in SENTENCE_BREAKS:
             cut = max(cut, line.rfind(mark, 0, limit))
-        if cut >= 62:
+        if cut >= 52:
             cut += 1
         else:
             soft = -1
             for mark in SOFT_BREAKS:
                 soft = max(soft, line.rfind(mark, 0, limit))
-            cut = soft + 1 if soft >= 68 else line.rfind(" ", 0, limit)
-        if cut < 62:
+            cut = soft + 1 if soft >= 54 else line.rfind(" ", 0, limit)
+        if cut < 42:
             cut = limit
         chunks.append(line[:cut].strip())
         line = line[cut:].strip()
@@ -86,8 +86,8 @@ def split_line_for_tts(line: str, limit: int = 105):
 
 def frame_budget_for_text(text: str, requested_max: int):
     word_count = len(text.split())
-    budget = max(460, 240 + int(len(text) * 3.2), 180 + word_count * 42)
-    return min(max(requested_max, budget), 1600)
+    budget = max(620, 320 + int(len(text) * 4.2), 260 + word_count * 58)
+    return min(max(requested_max, budget), 2400)
 
 
 def vietnamese_number_under_1000(number: int, full: bool = False):
@@ -172,6 +172,17 @@ def normalize_text_for_tts(text: str):
     return normalized
 
 
+def prepare_chunk_for_tts(text: str):
+    chunk = normalize_text_for_tts(text).strip()
+    if not chunk:
+        return chunk
+    if chunk[-1] in SOFT_BREAKS:
+        chunk = chunk[:-1].rstrip() + "."
+    elif chunk[-1] not in SENTENCE_BREAKS:
+        chunk = chunk + "."
+    return chunk
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate Vietnamese speech with the official local VieNeu TTS SDK.")
     parser.add_argument("text_file")
@@ -238,15 +249,15 @@ def main():
         chunks.extend(split_line_for_tts(line))
 
     rendered = []
-    sentence_silence = np.zeros(int(48000 * 0.33), dtype=np.float32)
-    paragraph_silence = np.zeros(int(48000 * 0.75), dtype=np.float32)
-    tail_silence = np.zeros(int(48000 * 0.46), dtype=np.float32)
+    sentence_silence = np.zeros(int(48000 * 0.36), dtype=np.float32)
+    paragraph_silence = np.zeros(int(48000 * 0.83), dtype=np.float32)
+    tail_silence = np.zeros(int(48000 * 0.52), dtype=np.float32)
     for chunk in chunks:
         if chunk is None:
             rendered.append(paragraph_silence)
             continue
         chunk_kwargs = dict(kwargs)
-        chunk_text = normalize_text_for_tts(chunk)
+        chunk_text = prepare_chunk_for_tts(chunk)
         if "max_new_frames" in infer_params:
             chunk_kwargs["max_new_frames"] = frame_budget_for_text(chunk_text, args.max_new_frames)
         audio = np.asarray(tts.infer(chunk_text, **chunk_kwargs), dtype=np.float32).reshape(-1)
