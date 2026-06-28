@@ -1555,6 +1555,7 @@ function normalizeScriptKey(text) {
   return String(text || "")
     .toLowerCase()
     .normalize("NFD")
+    .replace(/[đĐ]/g, "d")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
@@ -1727,12 +1728,28 @@ function currentScriptReady() {
 function updateQueueSubmitState() {
   const button = $("#queue-submit");
   const hint = $("#queue-submit-hint");
+  const writerButton = $("#preview-writer");
+  const rewriteButton = $("#rewrite-writer-script");
   if (!button || !hint) return;
   const status = currentScriptReady();
   button.disabled = !status.ok;
   hint.textContent = status.reason;
   hint.classList.toggle("ok", status.ok);
   hint.classList.toggle("warning", !status.ok);
+  button.classList.toggle("primary-action", status.ok);
+  button.classList.toggle("ghost", !status.ok);
+  if (writerButton) {
+    const needsWrite = !($("#manual-script")?.value.trim()) || ($("#manual-script")?.dataset.stale === "true" && !manualScriptEditing);
+    writerButton.classList.toggle("primary-action", needsWrite || writerBusy);
+    writerButton.classList.toggle("ghost", !needsWrite && !writerBusy);
+  }
+  if (rewriteButton) {
+    const hasContent = !!$("#manual-script")?.value.trim();
+    rewriteButton.disabled = writerBusy || !hasContent;
+    rewriteButton.classList.toggle("ghost", hasContent && !writerBusy);
+    rewriteButton.classList.toggle("primary-action", hasContent && !writerBusy && $("#manual-script")?.dataset.stale === "true");
+    rewriteButton.classList.toggle("subtle", !(hasContent && !writerBusy && $("#manual-script")?.dataset.stale === "true"));
+  }
 }
 
 async function runWriterPreview(button, idleLabel = "Write content", loadingLabel = "Đang viết...") {
@@ -1744,6 +1761,7 @@ async function runWriterPreview(button, idleLabel = "Write content", loadingLabe
     writerBusy = true;
     manualScriptFresh = false;
     manualScriptEditing = false;
+    lastWriterPreview = null;
     if (editor) editor.dataset.stale = "true";
     updateQueueSubmitState();
     button.disabled = true;

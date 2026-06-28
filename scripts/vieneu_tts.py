@@ -59,7 +59,7 @@ def resolve_local_vieneu_paths():
     return model_dir, onnx_dir, codec_dir
 
 
-def split_line_for_tts(line: str, limit: int = 88):
+def split_line_for_tts(line: str, limit: int = 72):
     line = " ".join(line.split()).strip()
     if not line:
         return []
@@ -86,8 +86,8 @@ def split_line_for_tts(line: str, limit: int = 88):
 
 def frame_budget_for_text(text: str, requested_max: int):
     word_count = len(text.split())
-    budget = max(620, 320 + int(len(text) * 4.2), 260 + word_count * 58)
-    return min(max(requested_max, budget), 2400)
+    budget = max(760, 360 + int(len(text) * 5.1), 320 + word_count * 68)
+    return min(max(requested_max, budget), 3200)
 
 
 def vietnamese_number_under_1000(number: int, full: bool = False):
@@ -162,13 +162,19 @@ def normalize_text_for_tts(text: str):
             return match.group(0)
         return vietnamese_number(number)
 
+    def decimal_replacer(match):
+        whole = vietnamese_number(int(match.group(1)))
+        fraction = " ".join(VN_UNITS[int(ch)] for ch in match.group(2))
+        return f"{whole} phẩy {fraction}".strip()
+
     normalized = re.sub(r"\b\d{1,3}(?:[.,]\d{3})+\b", thousands_replacer, text)
+    normalized = re.sub(r"(?<![\w/:-])(\d+)\.(\d{1,2})(?![\w/:-])", decimal_replacer, normalized)
     normalized = re.sub(r"(?<![\w./:-])\d+(?![\w./:-])", integer_replacer, normalized)
-    normalized = normalized.replace("AI", "ây ai")
-    normalized = normalized.replace("API", "ây pi ai")
-    normalized = normalized.replace("GPU", "gi pi iu")
-    normalized = normalized.replace("CUDA", "cu đa")
-    normalized = normalized.replace("MLX", "em el ích")
+    normalized = re.sub(r"\bAI\b", "ây ai", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\bAPI\b", "ây pi ai", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\bGPU\b", "gi pi iu", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\bCUDA\b", "cu đa", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\bMLX\b", "em el ích", normalized, flags=re.IGNORECASE)
     return normalized
 
 
@@ -249,9 +255,9 @@ def main():
         chunks.extend(split_line_for_tts(line))
 
     rendered = []
-    sentence_silence = np.zeros(int(48000 * 0.36), dtype=np.float32)
-    paragraph_silence = np.zeros(int(48000 * 0.83), dtype=np.float32)
-    tail_silence = np.zeros(int(48000 * 0.52), dtype=np.float32)
+    sentence_silence = np.zeros(int(48000 * 0.49), dtype=np.float32)
+    paragraph_silence = np.zeros(int(48000 * 1.00), dtype=np.float32)
+    tail_silence = np.zeros(int(48000 * 0.74), dtype=np.float32)
     for chunk in chunks:
         if chunk is None:
             rendered.append(paragraph_silence)
