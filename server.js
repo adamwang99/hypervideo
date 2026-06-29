@@ -1097,9 +1097,9 @@ async function handleApi(req, res, pathname, method) {
       });
       return;
     }
-    const mediaAssets = await mediaPromise;
     job.script = null;
     const script = scriptFromJob(job);
+    const mediaAssets = await mediaPromise;
     send(res, 200, {
       mode: "local",
       script,
